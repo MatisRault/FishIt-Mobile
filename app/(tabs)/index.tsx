@@ -4,13 +4,14 @@ import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
 import React, { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
+import { Image } from 'expo-image';
+
 
 export default function TabOneScreen() {
   const [locationText, setLocationText] = useState('Récupération de votre position...');
 
   const getCityFromNominatim = async (latitude, longitude) => {
     try {
-      // URL de l'API Nominatim d'OpenStreetMap
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
       
       const response = await fetch(url, {
@@ -108,7 +109,14 @@ export default function TabOneScreen() {
       <Text style={styles.title}>Fish It</Text>
       
       <View style={styles.locationContainer}>
-        <Text style={styles.locationText}>{locationText}</Text>
+      <Image
+        style={styles.image}
+        source={require("../../assets/images/marker.svg")}
+        contentFit="cover"
+        transition={1000}
+      />
+        <Text style={styles.locationText}>
+          {locationText}</Text>
       </View>
       
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
@@ -135,6 +143,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
+  },
+  image: {
+    width: 20,
+    height: 20,
   },
   locationContainer: {
     padding: 15,
