@@ -10,7 +10,7 @@ import { Image } from 'expo-image';
 export default function TabOneScreen() {
   const [locationText, setLocationText] = useState('Récupération de votre position...');
 
-  const getCityFromNominatim = async (latitude, longitude) => {
+  const getCityFromNominatim = async (latitude: number, longitude: number) => {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
       
@@ -95,7 +95,11 @@ export default function TabOneScreen() {
           setLocationText(`Localisation non disponible`);
         }
       } catch (error) {
-        setLocationText(`Erreur: ${error.message}`);
+        if (error instanceof Error) {
+          setLocationText(`Erreur: ${error.message}`);
+        } else {
+          setLocationText('Une erreur inconnue est survenue');
+        }
       }
     })();
   }, []);
