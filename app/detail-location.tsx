@@ -1,78 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 
-// Définition du type pour les données de localisation
 interface LocationData {
   libelle_station: string;
   libelle_commune: string;
   libelle_departement: string;
 }
 
+const fetchLocationDetails = async (code_operation: string): Promise<LocationData> => {
+  const response = await fetch(`https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs?code_operation=${code_operation}`);
+  if (!response.ok) throw new Error('Problème lors de la récupération des données');
+  const data = await response.json();
+  if (!data.data?.[0]) throw new Error('Aucune donnée trouvée pour cet identifiant');
+  return data.data[0];
+};
+
 const DetailLocation: React.FC = () => {
-  const [locationData, setLocationData] = useState<LocationData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Code d'opération fixe
   const code_operation = '92709';
   
-  useEffect(() => {
-    const fetchLocationDetails = async (): Promise<void> => {
-      try {
-        setLoading(true);
-        const response = await fetch(`https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs?code_operation=${code_operation}`);
-        
-        if (!response.ok) {
-          throw new Error('Problème lors de la récupération des données');
-        }
-        
-        const data = await response.json();
-        
-        if (data.data && data.data.length > 0) {
-          setLocationData(data.data[0]);
-        } else {
-          setError('Aucune donnée trouvée pour cet identifiant');
-        }
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchLocationDetails();
-  }, []); // Pas besoin de dépendance car le code_operation est fixe
-  
+  const {
+    data: locationData,
+    isLoading,
+    error,
+  } = useQuery<LocationData, Error>({
+    queryKey: ['location', code_operation],
+    queryFn: () => fetchLocationDetails(code_operation),
+    retry: 2,
+  });
+
   // Afficher le chargement
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#0000ff" />
       </View>
     );
   }
-  
+
   // Afficher l'erreur
   if (error) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>{error.message}</Text>
       </View>
     );
   }
-  
-  // Afficher les données simples (nom et adresse)
+
+  // Afficher les données
   return (
     <View style={styles.container}>
-      {locationData ? (
+      {locationData && (
         <>
           <Text style={styles.title}>{locationData.libelle_station}</Text>
           <Text style={styles.address}>
             {locationData.libelle_commune}, {locationData.libelle_departement}
           </Text>
         </>
-      ) : (
-        <Text style={styles.noData}>Aucune donnée disponible</Text>
       )}
     </View>
   );
