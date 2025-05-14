@@ -23,7 +23,7 @@ interface UserLocationData {
   city?: string;
 }
 
-const fetchLocationDetails = async (code_operation: string): Promise<LocationData> => {
+const fetchLocationDetails = async (code_operation: string): Promise<FilteredLocationData> => {
   const response = await fetch(`https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs?code_operation=${code_operation}`);
   if (!response.ok) throw new Error('Problème lors de la récupération des données');
   const data = await response.json();
