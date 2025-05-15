@@ -311,7 +311,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start', 
     alignSelf: 'flex-start', 
     marginBottom: 20,
-    marginLeft: 10, 
+    marginLeft: 10,
+    marginTop: 40, // Ajout de 40 pixels de marge en haut
   },
   title: {
     fontWeight: 'bold',
