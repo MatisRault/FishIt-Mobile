@@ -1,14 +1,36 @@
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { router } from 'expo-router';
-import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { Image } from 'expo-image';
-
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export default function TabOneScreen() {
   const [locationText, setLocationText] = useState('Récupération de votre position...');
+  const colorScheme = useColorScheme();
+  
+  // Animation pour l'effet de pulsation
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // Démarrer l'animation de pulsation
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   const getCityFromNominatim = async (latitude: number, longitude: number) => {
     try {
@@ -110,25 +132,48 @@ export default function TabOneScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Fish It</Text>
-      
-      <View style={styles.locationContainer}>
-      <Image
-        style={styles.image}
-        source={require("../../assets/images/marker.svg")}
-        contentFit="cover"
-        transition={1000}
-      />
+      <View style={[styles.locationContainer, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}>
+        <Image
+          style={styles.image}
+          source={require("../../assets/images/marker.svg")}
+          contentFit="cover"
+          transition={1000}
+        />
         <Text style={styles.locationText}>
-          {locationText}</Text>
+          {locationText}
+        </Text>     
       </View>
+
+      
+<Text style={{ fontSize: 34, color: '#204553', marginBottom: 20 }}>
+        <Text style={{ fontWeight: 'bold' }}>Explorer</Text> le monde de la pêche
+      </Text>
       
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      <View style={styles.cardsContainer}>
+        <TouchableOpacity
+          style={[styles.card, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}
+          onPress={navigateToDetailLocation}
+        >
+          <Text style={[styles.cardTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Détails spot</Text>
+          <Text style={[styles.cardDescription, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Voir les informations détaillées du spot actuel
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.card, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}
+        >
+          <Text style={[styles.cardTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Spots proches</Text>
+          <Text style={[styles.cardDescription, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Découvrez des spots de pêche à proximité
+          </Text>
+        </TouchableOpacity>
+      </View>
       
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
         onPress={navigateToDetailLocation}
       >
         <Text style={styles.buttonText}>Voir détails de location</Text>
@@ -142,41 +187,107 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 20,
+  },
+  welcomeCard: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.23,
+    shadowRadius: 2.62,
+    elevation: 4,
+  },
+  welcomeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
   },
   image: {
     width: 20,
     height: 20,
+    marginRight: 10,
   },
   locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 15,
     borderRadius: 10,
-    backgroundColor: '#f0f0f0',
-    width: '80%',
-    marginTop: 10,
+    width: '100%',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+    marginBottom: 20,
   },
   locationText: {
     fontSize: 16,
-    textAlign: 'center',
+    flex: 1,
   },
   separator: {
     marginVertical: 20,
     height: 1,
     width: '80%',
   },
+  cardsContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  card: {
+    width: '48%',
+    padding: 15,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  cardDescription: {
+    fontSize: 14,
+  },
   button: {
     marginTop: 20,
-    backgroundColor: '#2e78b7',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   buttonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });
