@@ -13,16 +13,31 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const router = useRouter();
 
+  const validateEmail = (email: string) => {
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(email);
+  }
+
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      Alert.alert('Erreur', 'Email invalide');
+      return;
+    }
+    
     try {
-      // Je dois remplacer localhost par l'ip actuelle de la machine
+      // J'ai remplacé localhost par l'ip actuelle de la machine
       const response = await axios.post('http://192.168.0.25:3000/api/login', {
         email,
         password,
       });
 
       if (response.data.token) {
-        // Stocker le token (AsyncStorage recommandé)
+        // J'ai stocké le token (AsyncStorage)
         await AsyncStorage.setItem('token', response.data.token);
         Alert.alert('Connexion réussie');
         router.replace('/(tabs)'); // redirection vers l'accueil
