@@ -1,116 +1,98 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router';
-import { StyleSheet, Image, View, Text, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React from 'react';
+import { StyleSheet, View, FlatList, Animated, Dimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from '@/components/useColorScheme';
+import { useThemeColor } from '@/components/Themed';
 
-export default function OnboardingScreen() {
-  return (
-    <LinearGradient
-      colors={['#2e78b7', '#1e4d8c']}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          {/* Logo ou image principale centrée */}
-            <Image 
-            source={require('@/assets/images/onBoarding.png')} 
-            style={styles.mainImage}
-            resizeMode="contain"
-          />
-          
-          {/* Titres avec espacement réduit */}
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>FishIt</Text>
-            <View style={styles.subtitleContainer}>
-              <Text style={styles.subtitle}>Explore les eaux,</Text>
-              <Text style={styles.subtitle}>Capture l'instant.</Text>
-            </View>
-          </View>
-        </View>
+// Importer les composants et hooks d'onboarding
+import {
+  SlideItem,
+  Pagination,
+  useOnboarding,
+  SLIDES_DATA
+} from '@/components/onboarding';
 
-        <View style={styles.buttonsContainer}>
-          <Link href="/(auth)/login" asChild>
-            <TouchableOpacity style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Se connecter</Text>
-            </TouchableOpacity>
-          </Link>
+// Obtenir les dimensions de l'écran
+const { width } = Dimensions.get('window');
 
-          <Link href="/(auth)/register" asChild>
-            <TouchableOpacity style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>S'inscrire</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+/**
+ * Écran d'onboarding avec les slides d'introduction
+ */
+const Onboarding: React.FC = () => {
+  // Obtenir le thème de couleur actuel
+  const colorScheme = useColorScheme();
+  
+  // Utiliser le hook personnalisé pour la logique d'onboarding
+  const {
+    currentIndex,
+    slidesRef,
+    scrollX,
+    goToSlide,
+    handleViewableItemsChanged,
+    viewableItemsConfig
+  } = useOnboarding(SLIDES_DATA);
+  
+  // Fonction pour rendre un slide
+  const renderSlide = ({ item }: { item: typeof SLIDES_DATA[0] }) => (
+    <SlideItem item={item} colorScheme={colorScheme} />
   );
-}
+  
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      
+      <FlatList
+        data={SLIDES_DATA}
+        renderItem={renderSlide}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        pagingEnabled
+        bounces={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={viewableItemsConfig}
+        ref={slidesRef}
+        style={styles.flatList}
+        decelerationRate="fast"
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
+        windowSize={3}
+      />
+      
+      {/* Pagination positionnée en position absolue en bas de l'écran */}
+      <View style={styles.paginationContainer}>
+        <Pagination
+          slides={SLIDES_DATA}
+          currentIndex={currentIndex}
+          colorScheme={colorScheme}
+          goToSlide={goToSlide}
+          scrollX={scrollX}
+        />
+      </View>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000', // Fond noir pour éviter tout espace blanc
   },
-  safeArea: {
+  flatList: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    paddingTop: 20,
   },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
+  paginationContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-  },
-  mainImage: {
-    width: '80%',
-    height: 200,
-    marginBottom: 40,
-  },
-  textContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 16,
-  },
-  subtitleContainer: {
-    alignItems: 'center',
-  },
-  subtitle: {
-    fontSize: 18,
-    color: 'white',
-    lineHeight: 24,
-  },
-  buttonsContainer: {
-    width: '100%',
-    gap: 16,
-    marginBottom: 20,
-  },
-  primaryButton: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#2e78b7',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  secondaryButton: {
-    borderWidth: 2,
-    borderColor: 'white',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  }
 });
+
+export default Onboarding;

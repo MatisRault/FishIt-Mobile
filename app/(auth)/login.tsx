@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
 import axios from 'axios';
+import { API_DE_BASE_URL } from '@/app/(auth)/config';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,13 +26,13 @@ export default function LoginScreen() {
     }
     
     if (!validateEmail(email)) {
-      Alert.alert('Erreur', 'Email invalide');
+      Alert.alert('Erreur', 'Veuillez entrer une adresse email valide');
       return;
     }
     
     try {
       // J'ai remplacé localhost par l'ip actuelle de la machine
-      const response = await axios.post('http://192.168.0.25:3000/api/login', {
+      const response = await axios.post(`${API_DE_BASE_URL}/login`, {
         email,
         password,
       });

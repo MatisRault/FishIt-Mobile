@@ -23,14 +23,6 @@ interface UserLocationData {
   city?: string;
 }
 
-const fetchLocationDetails = async (code_operation: string): Promise<FilteredLocationData> => {
-  const response = await fetch(`https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs?code_operation=${code_operation}`);
-  if (!response.ok) throw new Error('Problème lors de la récupération des données');
-  const data = await response.json();
-  if (!data.data?.[0]) throw new Error('Aucune donnée trouvée pour cet identifiant');
-  return data.data[0];
-};
-
 const DetailLocation: React.FC = () => {
   const { height } = Dimensions.get('window');
   const [locationData, setLocationData] = useState<FilteredLocationData | null>(null);
@@ -240,27 +232,24 @@ const DetailLocation: React.FC = () => {
       .catch(err => {
         console.error('An error occurred', err);
       });
-    }, [locationData, userLocation]);
+  }, [locationData, userLocation]);
 
-    // Afficher le chargement
-    if (loading) {
-      return (
+  if (loading) {
+    return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
       </View>
     );
   }
 
-  // Afficher l'erreur
   if (error) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        </View>
+      </View>
     );
   }
 
-  // Afficher les données
   return (
     <ScrollView>
       <View style={styles.container}>

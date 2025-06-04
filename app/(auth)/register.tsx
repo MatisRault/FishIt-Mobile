@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
 import axios from 'axios';
+import { API_DE_BASE_URL } from '@/app/(auth)/config';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,7 +38,7 @@ export default function RegisterScreen() {
     }
   
     try {
-      const response = await axios.post('http://192.168.0.25:3000/api/register', {
+      const response = await axios.post(`${API_DE_BASE_URL}/register`, {
         name,
         email,
         password,
