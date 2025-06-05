@@ -68,20 +68,16 @@ export default function TabOneScreen() {
   useEffect(() => {
     (async () => {
       try {
+        // Vérifier si nous avons DÉJÀ l'autorisation, mais ne pas la demander
         const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
         
-        let finalStatus = existingStatus;
-        
+        // Si l'autorisation n'est pas accordée, on affiche un message mais on ne la demande PAS
         if (existingStatus !== 'granted') {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          finalStatus = status;
-        }
-        
-        if (finalStatus !== 'granted') {
-          setLocationText('Permission d\'accès à la localisation refusée');
+          setLocationText('Permission de localisation requise');
           return;
         }
 
+        // Si l'autorisation est accordée, on utilise la localisation
         let location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced
         });
@@ -130,6 +126,7 @@ export default function TabOneScreen() {
     router.push('/detail-location');
   };
 
+
   return (
     <View style={styles.container}>
       <View style={[styles.locationContainer, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}>
@@ -144,8 +141,7 @@ export default function TabOneScreen() {
         </Text>     
       </View>
 
-      
-<Text style={{ fontSize: 34, color: '#204553', marginBottom: 20 }}>
+      <Text style={{ fontSize: 34, color: '#204553', marginBottom: 20 }}>
         <Text style={{ fontWeight: 'bold' }}>Explorer</Text> le monde de la pêche
       </Text>
       
