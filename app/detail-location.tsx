@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Dimensions, TouchableOpacity, Linking, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const globalLocationCache: { [key: string]: any } = {};
+const globalGeocodeCache: { [key: string]: any } = {};
 
 interface FilteredLocationData {
   libelle_station: string;
@@ -15,12 +19,14 @@ interface FilteredLocationData {
     nom: string;
     nombreTrouve: number;
   }[];
+  timestamp?: number;
 }
 
 interface UserLocationData {
   latitude: number;
   longitude: number;
   city?: string;
+  timestamp?: number;
 }
 
 const DetailLocation: React.FC = () => {
@@ -30,10 +36,25 @@ const DetailLocation: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocationData | null>(null);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
-
+  
+  const isMounted = useRef(true);
+  const fetchCount = useRef(0);
+  
   const code_operation = '92709';
+  const LOCATION_CACHE_KEY = `location_${code_operation}`;
+  const USER_LOCATION_CACHE_KEY = 'user_location_cache';
+  const CACHE_EXPIRY = 60 * 60 * 1000;
 
-  const calculateStraightDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 5000) => {
+    return Promise.race([
+      fetch(url, options),
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('La requête a expiré')), timeout)
+      )
+    ]);
+  };
+
+  const calculateStraightDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;
     const dLat = deg2rad(lat2 - lat1);
     const dLon = deg2rad(lon2 - lon1);
@@ -44,21 +65,55 @@ const DetailLocation: React.FC = () => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const distance = R * c;
     return distance;
-  };
+  }, []);
 
   const deg2rad = (deg: number): number => {
     return deg * (Math.PI/180);
   };
 
-  const getCityFromNominatim = async (latitude: number, longitude: number): Promise<string | null> => {
+  const saveToAsyncStorage = async (key: string, data: any) => {
     try {
+      await AsyncStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+      console.error('Failed to save data to AsyncStorage:', e);
+    }
+  };
+
+  const getFromAsyncStorage = async (key: string) => {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      if (value !== null) {
+        return JSON.parse(value);
+      }
+      return null;
+    } catch (e) {
+      console.error('Failed to read data from AsyncStorage:', e);
+      return null;
+    }
+  };
+
+  const getCityFromNominatim = useCallback(async (latitude: number, longitude: number): Promise<string | null> => {
+    const roundedLat = Math.round(latitude * 10000) / 10000;
+    const roundedLon = Math.round(longitude * 10000) / 10000;
+    const cacheKey = `geocode_${roundedLat}_${roundedLon}`;
+    
+    if (globalGeocodeCache[cacheKey]) {
+      return globalGeocodeCache[cacheKey];
+    }
+    
+    try {
+      if (fetchCount.current > 0) {
+        await new Promise(resolve => setTimeout(resolve, 500)); 
+      }
+      fetchCount.current++;
+      
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
       
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         headers: {
           'User-Agent': 'FishIt-Mobile-App'
         }
-      });
+      }, 3000);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -66,40 +121,131 @@ const DetailLocation: React.FC = () => {
       
       const data = await response.json();
       
+      let city = null;
       if (data.address) {
         const address = data.address;
-        const city = address.city || address.town || address.village || address.municipality || 
-                     address.district || address.suburb || address.hamlet || 
-                     (address.state || '') + (address.county ? `, ${address.county}` : '');
-        
-        if (city) return city;
+        city = address.city || address.town || address.village || address.municipality || 
+                address.district || address.suburb || address.hamlet || 
+                (address.state || '') + (address.county ? `, ${address.county}` : '');
       }
       
-      if (data.name) return data.name;
+      if (!city && data.name) city = data.name;
       
-      return null;
+      if (city) {
+        globalGeocodeCache[cacheKey] = city;
+        const geocodeCache = await getFromAsyncStorage('geocode_cache') || {};
+        geocodeCache[cacheKey] = city;
+        saveToAsyncStorage('geocode_cache', geocodeCache);
+      }
+      
+      return city;
     } catch (error) {
       console.error("Error getting city from Nominatim:", error);
       return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          return;
-        }
+    const loadGeocodeCache = async () => {
+      const cache = await getFromAsyncStorage('geocode_cache');
+      if (cache) {
+        Object.assign(globalGeocodeCache, cache);
+      }
+    };
+    
+    loadGeocodeCache();
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High
-        });
+  useEffect(() => {
+    const loadCachedData = async () => {
+      try {
+        const cachedLocationData = await getFromAsyncStorage(LOCATION_CACHE_KEY);
+        const cachedUserLocation = await getFromAsyncStorage(USER_LOCATION_CACHE_KEY);
         
-        const { latitude, longitude } = location.coords;
+        let shouldFetchLocation = true;
+        let shouldFetchUserLocation = true;
         
-        // First try to get city using Expo's reverseGeocodeAsync
-        let city = null;
+        if (cachedLocationData && cachedLocationData.timestamp) {
+          const now = Date.now();
+          if (now - cachedLocationData.timestamp < CACHE_EXPIRY) {
+            setLocationData(cachedLocationData);
+            shouldFetchLocation = false;
+          }
+        }
+        
+        if (cachedUserLocation && cachedUserLocation.timestamp) {
+          const now = Date.now();
+          if (now - cachedUserLocation.timestamp < CACHE_EXPIRY) {
+            setUserLocation(cachedUserLocation);
+            shouldFetchUserLocation = false;
+          }
+        }
+        
+        if (!shouldFetchLocation && !shouldFetchUserLocation) {
+          setLoading(false);
+        } else {
+          if (shouldFetchLocation && shouldFetchUserLocation) {
+            fetchAllData();
+          } else if (shouldFetchLocation) {
+            fetchLocationDetails();
+          } else if (shouldFetchUserLocation) {
+            getUserLocation();
+          }
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des données en cache:", err);
+        fetchAllData();
+      }
+    };
+    
+    loadCachedData();
+  }, []);
+  
+  useEffect(() => {
+    if (locationData && userLocation) {
+      const straightDist = calculateStraightDistance(
+        userLocation.latitude, 
+        userLocation.longitude, 
+        locationData.latitude, 
+        locationData.longitude
+      );
+      
+      const estimatedRouteDist = straightDist * 1.3;
+      setRouteDistance(estimatedRouteDist);
+    }
+  }, [locationData, userLocation, calculateStraightDistance]);
+
+  const getUserLocation = async () => {
+    try {
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+      
+      const { latitude, longitude } = location.coords;
+      
+      const roundedLat = Math.round(latitude * 10000) / 10000;
+      const roundedLon = Math.round(longitude * 10000) / 10000;
+      const cacheKey = `geocode_${roundedLat}_${roundedLon}`;
+      
+      let city = globalGeocodeCache[cacheKey];
+      
+      if (!city) {
         try {
           const reverseGeocode = await Location.reverseGeocodeAsync({
             latitude,
@@ -121,75 +267,125 @@ const DetailLocation: React.FC = () => {
           console.error("Error with Expo reverse geocoding:", geoErr);
         }
         
-        // If Expo geocoding failed, try Nominatim
         if (!city) {
           city = await getCityFromNominatim(latitude, longitude);
         }
         
-        setUserLocation({
-          latitude,
-          longitude,
-          city: city || 'Ville inconnue'
-        });
-      } catch (err) {
-        console.error("Erreur lors de l'obtention de la position de l'utilisateur:", err);
+        if (city) {
+          globalGeocodeCache[cacheKey] = city;
+        }
       }
-    })();
-  }, []);
+      
+      const userLocationData: UserLocationData = {
+        latitude,
+        longitude,
+        city: city || 'Ville inconnue',
+        timestamp: Date.now()
+      };
+      
+      if (isMounted.current) {
+        setUserLocation(userLocationData);
+        await saveToAsyncStorage(USER_LOCATION_CACHE_KEY, userLocationData);
+      }
+      
+      return userLocationData;
+    } catch (err) {
+      console.error("Erreur lors de l'obtention de la position de l'utilisateur:", err);
+      return null;
+    }
+  };
 
-  useEffect(() => {
-    if (locationData && userLocation) {
-      const straightDist = calculateStraightDistance(
-        userLocation.latitude, 
-        userLocation.longitude, 
-        locationData.latitude, 
-        locationData.longitude
+  const fetchLocationDetails = async () => {
+    try {
+      if (globalLocationCache[LOCATION_CACHE_KEY]) {
+        setLocationData(globalLocationCache[LOCATION_CACHE_KEY]);
+        return globalLocationCache[LOCATION_CACHE_KEY];
+      }
+      
+      if (fetchCount.current > 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      fetchCount.current++;
+      
+      const response = await fetchWithTimeout(
+        `https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs?code_operation=${code_operation}`,
+        {},
+        8000
       );
       
-      const estimatedRouteDist = straightDist * 1.3;
-      setRouteDistance(estimatedRouteDist);
-    }
-  }, [locationData, userLocation]);
-
-  useEffect(() => {
-    const fetchLocationDetails = async (): Promise<void> => {
-      try {
-        setLoading(true);
-        const response = await fetch(`https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs?code_operation=${code_operation}`);
-        if (!response.ok) throw new Error('Problème lors de la récupération des données');
-        const data = await response.json();
-        if (data.data && data.data.length > 0) {
-          const rawData = data.data[0];
-          const filteredData: FilteredLocationData = {
-            libelle_station: rawData.libelle_station,
-            code_commune: rawData.code_commune,
-            libelle_commune: rawData.libelle_commune,
-            libelle_departement: rawData.libelle_departement,
-            latitude: rawData.latitude,
-            longitude: rawData.longitude,
-            profondeur: rawData.ipr_profondeur,
-            poissons: []
-          };
-          if (rawData.ipr_noms_communs_taxon && rawData.ipr_noms_communs_taxon.length > 0 && rawData.ipr_effectifs_taxon) {
-            filteredData.poissons = rawData.ipr_noms_communs_taxon
-              .map((nom: string, index: number) => ({
-                nom,
-                nombreTrouve: rawData.ipr_effectifs_taxon[index] || 0
-              }))
-              .filter((poisson: { nom: string; nombreTrouve: number }) => poisson.nombreTrouve > 0);
-          }
+      if (!response.ok) throw new Error('Problème lors de la récupération des données');
+      
+      const data = await response.json();
+      if (data.data && data.data.length > 0) {
+        const rawData = data.data[0];
+        const filteredData: FilteredLocationData = {
+          libelle_station: rawData.libelle_station,
+          code_commune: rawData.code_commune,
+          libelle_commune: rawData.libelle_commune,
+          libelle_departement: rawData.libelle_departement,
+          latitude: rawData.latitude,
+          longitude: rawData.longitude,
+          profondeur: rawData.ipr_profondeur,
+          poissons: [],
+          timestamp: Date.now()
+        };
+        
+        if (rawData.ipr_noms_communs_taxon && rawData.ipr_noms_communs_taxon.length > 0 && rawData.ipr_effectifs_taxon) {
+          filteredData.poissons = rawData.ipr_noms_communs_taxon
+            .map((nom: string, index: number) => ({
+              nom,
+              nombreTrouve: rawData.ipr_effectifs_taxon[index] || 0
+            }))
+            .filter((poisson: { nom: string; nombreTrouve: number }) => poisson.nombreTrouve > 0);
+        }
+        
+        if (isMounted.current) {
           setLocationData(filteredData);
-        } else {
+          globalLocationCache[LOCATION_CACHE_KEY] = filteredData;
+          await saveToAsyncStorage(LOCATION_CACHE_KEY, filteredData);
+        }
+        
+        return filteredData;
+      } else {
+        if (isMounted.current) {
           setError('Aucune donnée trouvée pour cet identifiant');
         }
-      } catch (err) {
+        return null;
+      }
+    } catch (err) {
+      if (isMounted.current) {
         setError((err as Error).message);
-      } finally {
+      }
+      return null;
+    }
+  };
+
+  const fetchAllData = async () => {
+    try {
+      const results = await Promise.all([
+        fetchLocationDetails(),
+        getUserLocation()
+      ]);
+      
+      if (results[0] && results[1] && isMounted.current) {
+        const straightDist = calculateStraightDistance(
+          results[1].latitude,
+          results[1].longitude,
+          results[0].latitude,
+          results[0].longitude
+        );
+        
+        const estimatedRouteDist = straightDist * 1.3;
+        setRouteDistance(estimatedRouteDist);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des données:", error);
+    } finally {
+      if (isMounted.current) {
         setLoading(false);
       }
-    };
-    fetchLocationDetails();
-  }, []);
+    }
+  };
 
   const openMapsWithDirections = useCallback(() => {
     if (!locationData) return;
@@ -234,26 +430,18 @@ const DetailLocation: React.FC = () => {
       });
   }, [locationData, userLocation]);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
   return (
     <ScrollView>
       <View style={styles.container}>
-        {locationData ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : locationData ? (
           <>
             <View style={styles.mapContainer}>
               <MapView
@@ -287,15 +475,6 @@ const DetailLocation: React.FC = () => {
             <Text style={styles.locationTitle}>{locationData.libelle_station}</Text>
             <Text style={styles.locationAdress}>{locationData.libelle_commune}, {locationData.libelle_departement}</Text>
 
-            {routeDistance !== null && (
-              <View style={styles.distanceContainer}>
-                <View style={styles.distanceRow}>
-                  <Text style={styles.distanceLabel}>Distance approximative :</Text>
-                  <Text style={styles.distanceValue}>{routeDistance.toFixed(1)} km</Text>
-                </View>
-              </View>
-            )}
-
             <View style={styles.separator} />
 
             <View style={styles.statsContainer}>
@@ -315,20 +494,45 @@ const DetailLocation: React.FC = () => {
             
             <View style={styles.separator} />
 
-            <Text style={styles.sectionTitle}>Votre position :</Text>
             {userLocation && (
-              <View style={styles.userLocationContainer}>
-                <Text style={styles.userLocationText}>
-                  {userLocation.city}
-                </Text>
-                <Text style={styles.userCoordinates}>
-                  {userLocation.latitude.toFixed(5)}, {userLocation.longitude.toFixed(5)}
-                </Text>
-              </View>
+              <>
+                <View style={styles.routeContainer}>
+                  <View style={styles.travelContainer}>
+                    <View style={styles.pinIconContainer}>
+                      <View style={styles.pinIcon} />
+                    </View>
+                    <View style={{ marginLeft: 10 }}>
+                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#204553' }}>Votre position</Text>
+                      <Text style={{ fontSize: 16, color: '#8299a4' }}>
+                        {userLocation.city}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.routeInfo}>
+                    <View style={styles.dottedLine} />
+                    {routeDistance !== null && (
+                      <Text style={styles.distanceText}>{routeDistance.toFixed(1)} km</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.travelContainer}>
+                    <View style={styles.pinIconContainer}>
+                      <View style={[styles.pinIcon, { backgroundColor: 'red' }]} />
+                    </View>
+                    <View style={{ marginLeft: 10 }}>
+                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#204553' }}>Point de destination</Text>
+                      <Text style={{ fontSize: 16, color: '#8299a4' }}>
+                        {locationData.libelle_station}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </>
             )}
 
             <TouchableOpacity 
-              style={styles.directionsButton}
+              style={[styles.directionsButton, { marginTop: 30 }]}
               onPress={openMapsWithDirections}
             >
               <Text style={styles.directionsButtonText}>Y aller avec Google Maps</Text>
@@ -360,29 +564,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#8299a4',
   },
-  distanceContainer: {
-    marginTop: 10,
-    padding: 12,
-    backgroundColor: '#f2f8fa',
-    borderRadius: 8,
-  },
-  distanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  distanceLabel: {
-    fontSize: 16,
-    color: '#204553',
-    fontWeight: '500',
-  },
-  distanceValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#204553',
-  },
   loadingContainer: {
-    flex: 1,
+    height: 300,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -424,28 +607,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 10,
-    color: '#204553',
-  },
-  userLocationContainer: {
-    backgroundColor: '#f2f8fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  userLocationText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#204553',
-    marginBottom: 4,
-  },
-  userCoordinates: {
-    fontSize: 14,
-    color: '#8299a4',
-  },
   directionsButton: {
     backgroundColor: '#204553',
     padding: 15,
@@ -457,6 +618,59 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  }, 
+  travelContainer: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+  }, 
+  pinIconContainer: {
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinIcon: {
+    width: 16,
+    height: 16,
+    backgroundColor: 'blue',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 5,
+  },
+  routeContainer: {
+    paddingLeft: 25,
+    marginBottom: 10,
+  },
+  routeInfo: {
+    marginLeft: 8,
+    paddingLeft: 0,
+    position: 'relative',
+    height: 90,
+  },
+  dottedLine: {
+    position: 'absolute',
+    left: -1,
+    top: 0,
+    bottom: 0,
+    width: 0,
+    borderLeftWidth: 2,
+    borderLeftColor: '#8299a4',
+    borderStyle: 'dashed',
+    height: '100%',
+  },
+  distanceText: {
+    position: 'absolute',
+    left: 28,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#204553',
   }
 });
 
