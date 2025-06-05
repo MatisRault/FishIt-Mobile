@@ -1,16 +1,36 @@
-import { StyleSheet, TouchableOpacity, Animated, TextInput, ScrollView } from 'react-native';
+import { StyleSheet, TouchableOpacity, Animated, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import React, { useState, useEffect, useRef } from 'react';
-import * as Location from 'expo-location';
 import { Image } from 'expo-image';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
+interface FishSpecies {
+  commonName: string;
+  scientificName: string;
+}
+
+interface FishSpot {
+  code: string;
+  name: string;
+  commune: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  distance?: number;
+  speciesCount: number;
+}
+
 export default function TabOneScreen() {
-  const [locationText, setLocationText] = useState('Récupération de votre position...');
+  const [locationText, setLocationText] = useState('Le Bouscat');
   const [searchQuery, setSearchQuery] = useState('');
+  const [fishSpots, setFishSpots] = useState<FishSpot[]>([]);
+  const [fishSpecies, setFishSpecies] = useState<FishSpecies[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showAllSpots, setShowAllSpots] = useState(false);
   const colorScheme = useColorScheme();
   
   // Animation pour l'effet de pulsation
@@ -34,122 +54,146 @@ export default function TabOneScreen() {
     ).start();
   }, []);
 
-  const getCityFromNominatim = async (latitude: number, longitude: number) => {
+  // Données statiques pour démarrage rapide
+  const staticSpots: FishSpot[] = [
+    { 
+      code: '1', 
+      name: "Étangs de Floirac", 
+      commune: "Floirac",
+      coordinates: { latitude: 44.8378, longitude: -0.5792 },
+      speciesCount: 35
+    },
+    { 
+      code: '2', 
+      name: "La Garonne", 
+      commune: "Bacalan",
+      coordinates: { latitude: 44.8567, longitude: -0.5555 },
+      speciesCount: 28
+    },
+    { 
+      code: '3', 
+      name: "Lac de Lacanau", 
+      commune: "Lacanau",
+      coordinates: { latitude: 45.0053, longitude: -1.1953 },
+      speciesCount: 32
+    },
+    { 
+      code: '4', 
+      name: "Bassin d'Arcachon", 
+      commune: "Arcachon",
+      coordinates: { latitude: 44.6574, longitude: -1.1657 },
+      speciesCount: 42
+    },
+    { 
+      code: '5', 
+      name: "Canal de Garonne", 
+      commune: "Bordeaux",
+      coordinates: { latitude: 44.8404, longitude: -0.5805 },
+      speciesCount: 25
+    },
+    { 
+      code: '6', 
+      name: "Étang de Cazaux", 
+      commune: "Cazaux",
+      coordinates: { latitude: 44.5333, longitude: -1.1167 },
+      speciesCount: 38
+    },
+    { 
+      code: '7', 
+      name: "Lac d'Hourtin", 
+      commune: "Hourtin",
+      coordinates: { latitude: 45.1833, longitude: -1.0667 },
+      speciesCount: 29
+    },
+    { 
+      code: '8', 
+      name: "Dordogne", 
+      commune: "Libourne",
+      coordinates: { latitude: 44.9139, longitude: -0.2417 },
+      speciesCount: 31
+    },
+    { 
+      code: '9', 
+      name: "Canal latéral", 
+      commune: "Castets",
+      coordinates: { latitude: 44.2667, longitude: -0.6167 },
+      speciesCount: 22
+    },
+    { 
+      code: '10', 
+      name: "Étang de Sanguinet", 
+      commune: "Sanguinet",
+      coordinates: { latitude: 44.4833, longitude: -1.0667 },
+      speciesCount: 27
+    }
+  ];
+
+  const staticSpecies: FishSpecies[] = [
+    { commonName: 'Brochet', scientificName: 'Esox lucius' },
+    { commonName: 'Carpe', scientificName: 'Cyprinus carpio' },
+    { commonName: 'Sandre', scientificName: 'Sander lucioperca' },
+    { commonName: 'Perche', scientificName: 'Perca fluviatilis' }
+  ];
+
+  // Initialiser avec des données statiques au démarrage
+  useEffect(() => {
+    setFishSpots(staticSpots);
+    setFishSpecies(staticSpecies);
+    
+    // Charger les vraies données en arrière-plan après 2 secondes
+    const timer = setTimeout(() => {
+      loadRealData();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const loadRealData = async () => {
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
+      setLoading(true);
       
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'FishIt-Mobile-App'
-        }
-      });
+      // Import dynamique pour éviter le blocage au démarrage
+      const { getGirondeFishData } = await import('@/services/FishDataService');
+      const data = await getGirondeFishData();
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Limiter à 50 spots pour la performance
+      const limitedStations = data.stations.slice(0, 50);
       
-      const data = await response.json();
+      const spots: FishSpot[] = limitedStations.map(station => ({
+        code: station.code,
+        name: station.name,
+        commune: station.commune,
+        coordinates: station.coordinates,
+        speciesCount: Math.min(data.allPossibleSpecies.length, 50)
+      }));
+
+      setFishSpots(spots);
+      setFishSpecies(data.allPossibleSpecies.slice(0, 8));
       
-      if (data.address) {
-        const address = data.address;
-        const city = address.city || address.town || address.village || address.municipality || 
-                     address.district || address.suburb || address.hamlet || 
-                     (address.state || '') + (address.county ? `, ${address.county}` : '');
-        
-        if (city) return city;
-      }
-      
-      if (data.name) return data.name;
-      
-      return null;
     } catch (error) {
-      return null;
+      console.error('Erreur lors du chargement des vraies données:', error);
+      // Garder les données statiques en cas d'erreur
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
-        
-        if (existingStatus !== 'granted') {
-          setLocationText('Le Bouscat');
-          return;
-        }
-
-        let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced
-        });
-        
-        const { latitude, longitude } = location.coords;
-        
-        const reverseGeocode = await Location.reverseGeocodeAsync({
-          latitude,
-          longitude
-        });
-        
-        let city = null;
-        
-        if (reverseGeocode && reverseGeocode.length > 0) {
-          const addressData = reverseGeocode[0];
-          
-          if (addressData.city) {
-            city = addressData.city;
-          } else if (addressData.district) {
-            city = addressData.district;
-          } else if (addressData.region) {
-            city = addressData.region;
-          }
-        }
-        
-        if (!city) {
-          city = await getCityFromNominatim(latitude, longitude);
-        }
-        
-        if (city) {
-          setLocationText(city);
-        } else {
-          setLocationText('Le Bouscat');
-        }
-      } catch (error) {
-        setLocationText('Le Bouscat');
-      }
-    })();
-  }, []);
-
-  const navigateToDetailLocation = () => {
+  const navigateToDetailLocation = (spot: FishSpot) => {
     router.push('/detail-location');
   };
 
-  // Données des spots selon la maquette
-  const popularSpots = [
-    { 
-      id: 1, 
-      name: "Étangs de Floirac", 
-      subtitle: "à Floirac",
-      species: "35 espèces de poissons",
-      color: "#4A90A4"
-    },
-    { 
-      id: 2, 
-      name: "La Garonne", 
-      subtitle: "à Bacalan",
-      species: "28 espèces de poissons",
-      color: "#8FA4B3"
-    },
-    { 
-      id: 3, 
-      name: "Lac de", 
-      subtitle: "Lacanau",
-      species: "32 espèces de poissons",
-      color: "#C5A572"
-    },
-  ];
+  const getSpotColor = (index: number): string => {
+    const colors = ["#4A90A4", "#8FA4B3", "#C5A572", "#7BA474", "#A47B85", "#6B9BD8", "#D4A574", "#8FA47B"];
+    return colors[index % colors.length];
+  };
 
-  // Poissons de la section "Que vois-tu ?"
-  const fishOptions = [
-    "🐠", "🐟", "🐠", "🐟"
-  ];
+  const getSpeciesEmoji = (index: number): string => {
+    const emojis = ["🐠", "🐟", "🦈", "🐡"];
+    return emojis[index % emojis.length];
+  };
+
+  // Spots à afficher (10 premiers ou tous selon showAllSpots)
+  const spotsToShow = showAllSpots ? fishSpots : fishSpots.slice(0, 10);
 
   return (
     <View style={styles.container}>
@@ -195,36 +239,74 @@ export default function TabOneScreen() {
 
         {/* Section Places Populaires */}
         <View style={styles.sectionContainer}>
-          <View style={styles.sectionTitleContainer}>
-            <Text style={styles.sectionTitle}>
-              <Text style={styles.boldSectionTitle}>Places</Text> populaires
-            </Text>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>
+                <Text style={styles.boldSectionTitle}>Spots</Text> de pêche
+                {loading && <ActivityIndicator size="small" color="#8299a4" style={{ marginLeft: 10 }} />}
+              </Text>
+            </View>
+            {fishSpots.length > 10 && (
+              <TouchableOpacity onPress={() => setShowAllSpots(!showAllSpots)}>
+                <Text style={styles.seeAllText}>
+                  {showAllSpots ? 'Voir plus' : `${fishSpots.length} spots`}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+          
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.spotsScrollContainer}
+            decelerationRate="fast"
+            snapToInterval={180} // Largeur de la card + margin pour effet snap
+            snapToAlignment="start"
+            pagingEnabled={false}
           >
-            {popularSpots.map((spot, index) => (
+            {(showAllSpots ? fishSpots : fishSpots.slice(0, 10)).map((spot, index) => (
               <TouchableOpacity 
-                key={spot.id} 
+                key={spot.code} 
                 style={[styles.spotCard, { marginLeft: index === 0 ? 20 : 0 }]}
-                onPress={navigateToDetailLocation}
+                onPress={() => navigateToDetailLocation(spot)}
               >
-                <View style={[styles.spotImageContainer, { backgroundColor: spot.color }]}>
+                <View style={[styles.spotImageContainer, { backgroundColor: getSpotColor(index) }]}>
                   <TouchableOpacity style={styles.bookmarkIcon}>
                     <FontAwesome name="bookmark-o" size={16} color="white" />
                   </TouchableOpacity>
                   
+                  {/* Badge de distance si disponible */}
+                  {spot.distance && (
+                    <View style={styles.distanceBadge}>
+                      <Text style={styles.distanceText}>{spot.distance.toFixed(1)} km</Text>
+                    </View>
+                  )}
+                  
                   {/* Texte superposé en bas de l'image */}
                   <View style={styles.spotTextOverlay}>
-                    <Text style={styles.spotName}>{spot.name}</Text>
-                    <Text style={styles.spotSubtitle}>{spot.subtitle}</Text>
-                    <Text style={styles.spotSpecies}>{spot.species}</Text>
+                    <Text style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
+                    <Text style={styles.spotSubtitle} numberOfLines={1}>à {spot.commune}</Text>
+                    <Text style={styles.spotSpecies} numberOfLines={1}>
+                      {spot.speciesCount} espèces de poissons
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>
             ))}
+            
+            {/* Card "Voir plus" à la fin */}
+            {!showAllSpots && fishSpots.length > 10 && (
+              <TouchableOpacity 
+                style={[styles.spotCard, styles.seeMoreCard]}
+                onPress={() => setShowAllSpots(true)}
+              >
+                <View style={styles.seeMoreContainer}>
+                  <FontAwesome name="plus-circle" size={40} color="#204553" />
+                  <Text style={styles.seeMoreText}>Voir plus</Text>
+                  <Text style={styles.seeMoreSubtext}>+{fishSpots.length - 10} spots</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
 
@@ -240,9 +322,12 @@ export default function TabOneScreen() {
           </View>
           
           <View style={styles.fishGrid}>
-            {fishOptions.map((fish, index) => (
+            {fishSpecies.slice(0, 4).map((species, index) => (
               <TouchableOpacity key={index} style={styles.fishCard}>
-                <Text style={styles.fishIcon}>{fish}</Text>
+                <Text style={styles.fishIcon}>{getSpeciesEmoji(index)}</Text>
+                <Text style={styles.fishName} numberOfLines={2}>
+                  {species.commonName}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -325,8 +410,17 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 32,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: 'transparent',
+  },
   sectionTitleContainer: {
     backgroundColor: 'transparent',
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 20,
@@ -345,7 +439,7 @@ const styles = StyleSheet.create({
   },
   spotCard: {
     width: 160,
-    marginRight: 16,
+    marginRight: 20,
     marginBottom: 20,
   },
   spotImageContainer: {
@@ -355,6 +449,46 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'flex-end',
     padding: 15,
+  },
+  distanceBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  distanceText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  seeMoreCard: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  seeMoreContainer: {
+    height: 200,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#204553',
+    borderStyle: 'dashed',
+    width: '100%',
+  },
+  seeMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#204553',
+    marginTop: 10,
+  },
+  seeMoreSubtext: {
+    fontSize: 12,
+    color: '#8299a4',
+    marginTop: 4,
   },
   bookmarkIcon: {
     position: 'absolute',
@@ -378,6 +512,7 @@ const styles = StyleSheet.create({
   spotSpecies: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
+    marginBottom: 2,
   },
   fishSectionHeader: {
     flexDirection: 'row',
@@ -399,7 +534,7 @@ const styles = StyleSheet.create({
   },
   fishCard: {
     width: 70,
-    height: 70,
+    height: 90,
     backgroundColor: 'white',
     borderRadius: 15,
     justifyContent: 'center',
@@ -409,9 +544,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    padding: 8,
   },
   fishIcon: {
-    fontSize: 32,
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  fishName: {
+    fontSize: 9,
+    color: '#204553',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   bottomSpacer: {
     height: 100,

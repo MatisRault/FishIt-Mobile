@@ -2,7 +2,6 @@
   "expo": {
     "name": "FishIt-Mobile",
     "slug": "FishIt-Mobile",
-    "owner": "fishit-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -23,7 +22,6 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "ACCESS_FINE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
       "package": "com.fishitmobile.FishItMobile"
@@ -48,20 +46,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "e992048f-2307-43f1-bf3d-289869c09fef"
-      }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/e992048f-2307-43f1-bf3d-289869c09fef"
     }
   }
 }
