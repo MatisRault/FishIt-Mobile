@@ -101,20 +101,20 @@ const SlideItem: React.FC<SlideItemProps> = ({ item, colorScheme }) => {
   const navigateToLogin = async () => {
     try {
       await AsyncStorage.setItem('@onboarding_completed', 'true');
-      router.replace('/login'); 
+      router.push('/login'); 
     } catch (error) {
       console.error('Erreur lors de la navigation vers la page de connexion:', error);
-      router.replace('/(tabs)');
+      router.push('/(tabs)');
     }
   };
   
   const navigateToSignup = async () => {
     try {
       await AsyncStorage.setItem('@onboarding_completed', 'true');
-      router.replace('/register'); 
+      router.push('/register'); 
     } catch (error) {
       console.error('Erreur lors de la navigation vers la page d\'inscription:', error);
-      router.replace('/(tabs)');
+      router.push('/(tabs)');
     }
   };
   

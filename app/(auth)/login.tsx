@@ -1,23 +1,22 @@
 import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
-import axios from 'axios';
-import { API_DE_BASE_URL } from '@/app/(auth)/config';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AuthService } from '@/services/authService';
 
-const { width, height } = Dimensions.get ('window');
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // Ajout d'un état de chargement
   const router = useRouter();
 
   const validateEmail = (email: string) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     return re.test(email);
-  }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,23 +29,19 @@ export default function LoginScreen() {
       return;
     }
     
+    setIsLoading(true);
+    
     try {
-      // J'ai remplacé localhost par l'ip actuelle de la machine
-      const response = await axios.post(`${API_DE_BASE_URL}/login`, {
-        email,
-        password,
-      });
-
-      if (response.data.token) {
-        // J'ai stocké le token (AsyncStorage)
-        await AsyncStorage.setItem('token', response.data.token);
-        Alert.alert('Connexion réussie');
-        router.replace('/(tabs)'); // redirection vers l'accueil
-      } else {
-        Alert.alert('Erreur', 'Identifiants incorrects');
-      }
+      await AuthService.login({ email, password });
+      Alert.alert('Connexion réussie');
+      router.replace('/(tabs)'); //page d'accueil
     } catch (error) {
-      Alert.alert('Erreur serveur', 'Erreur lors de la connexion');
+      Alert.alert(
+        'Erreur de connexion', 
+        error instanceof Error ? error.message : 'Une erreur inconnue est survenue'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
   

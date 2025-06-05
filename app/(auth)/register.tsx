@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
-import axios from 'axios';
-import { API_DE_BASE_URL } from '@/app/(auth)/config';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AuthService } from '@/services/authService'; // Import du service
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,16 +11,17 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const validateEmail = (email: string) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     return re.test(email);
-  }
+  };
 
   const validatePassword = (password: string) => {
-    return password.length >= 6 
-  }
+    return password.length >= 6;
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -36,22 +36,20 @@ export default function RegisterScreen() {
       Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
-  
+    
+    setIsLoading(true);
+    
     try {
-      const response = await axios.post(`${API_DE_BASE_URL}/register`, {
-        name,
-        email,
-        password,
-      });
-  
-      if (response.data.success) {
-        Alert.alert('Inscription réussie');
-        router.replace('/login');
-      } else {
-        Alert.alert('Erreur', response.data.message || 'Inscription échouée');
-      }
+      await AuthService.register({ name, email, password });
+      Alert.alert('Inscription réussie', 'Vous pouvez maintenant vous connecter');
+      router.replace('/login');
     } catch (error) {
-      Alert.alert('Erreur serveeur', 'Erreur lors de l\'inscription');
+      Alert.alert(
+        'Erreur d\'inscription', 
+        error instanceof Error ? error.message : 'Une erreur inconnue est survenue'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
   

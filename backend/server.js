@@ -65,6 +65,38 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   res.json({ name: user.name, email: user.email });
 });
 
+// Mise à jour utilisateur
+app.put('/api/users', authMiddleware, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const updates = {};
+    
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+    if (password) updates.password = await bcrypt.hash(password, 10);
+    
+    const user = await User.findOneAndUpdate(
+      { email: req.user.email },
+      updates,
+      { new: true }
+    );
+    
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Suppression utilisateur
+app.delete('/api/users', authMiddleware, async (req, res) => {
+  try {
+    await User.findOneAndDelete({ email: req.user.email });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 
 app.listen(3000, () => {
   console.log('Backend running on http://localhost:3000');
