@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, TouchableOpacity, Animated, TextInput, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import React, { useState, useEffect, useRef } from 'react';
@@ -6,9 +6,11 @@ import * as Location from 'expo-location';
 import { Image } from 'expo-image';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function TabOneScreen() {
   const [locationText, setLocationText] = useState('Récupération de votre position...');
+  const [searchQuery, setSearchQuery] = useState('');
   const colorScheme = useColorScheme();
   
   // Animation pour l'effet de pulsation
@@ -68,16 +70,13 @@ export default function TabOneScreen() {
   useEffect(() => {
     (async () => {
       try {
-        // Vérifier si nous avons DÉJÀ l'autorisation, mais ne pas la demander
         const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
         
-        // Si l'autorisation n'est pas accordée, on affiche un message mais on ne la demande PAS
         if (existingStatus !== 'granted') {
-          setLocationText('Permission de localisation requise');
+          setLocationText('Le Bouscat');
           return;
         }
 
-        // Si l'autorisation est accordée, on utilise la localisation
         let location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced
         });
@@ -108,16 +107,12 @@ export default function TabOneScreen() {
         }
         
         if (city) {
-          setLocationText(`Vous êtes à ${city}`);
+          setLocationText(city);
         } else {
-          setLocationText(`Localisation non disponible`);
+          setLocationText('Le Bouscat');
         }
       } catch (error) {
-        if (error instanceof Error) {
-          setLocationText(`Erreur: ${error.message}`);
-        } else {
-          setLocationText('Une erreur inconnue est survenue');
-        }
+        setLocationText('Le Bouscat');
       }
     })();
   }, []);
@@ -126,54 +121,136 @@ export default function TabOneScreen() {
     router.push('/detail-location');
   };
 
+  // Données des spots selon la maquette
+  const popularSpots = [
+    { 
+      id: 1, 
+      name: "Étangs de Floirac", 
+      subtitle: "à Floirac",
+      species: "35 espèces de poissons",
+      color: "#4A90A4"
+    },
+    { 
+      id: 2, 
+      name: "La Garonne", 
+      subtitle: "à Bacalan",
+      species: "28 espèces de poissons",
+      color: "#8FA4B3"
+    },
+    { 
+      id: 3, 
+      name: "Lac de", 
+      subtitle: "Lacanau",
+      species: "32 espèces de poissons",
+      color: "#C5A572"
+    },
+  ];
+
+  // Poissons de la section "Que vois-tu ?"
+  const fishOptions = [
+    "🐠", "🐟", "🐠", "🐟"
+  ];
 
   return (
     <View style={styles.container}>
-      <View style={[styles.locationContainer, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}>
-        <Image
-          style={styles.image}
-          source={require("../../assets/images/marker.svg")}
-          contentFit="cover"
-          transition={1000}
-        />
-        <Text style={styles.locationText}>
-          {locationText}
-        </Text>     
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header avec localisation */}
+        <View style={styles.headerContainer}>
+          <View style={styles.locationContainer}>
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+              <Image
+                style={styles.image}
+                source={require("../../assets/images/marker.svg")}
+                contentFit="cover"
+                transition={1000}
+              />
+            </Animated.View>
+            <Text style={styles.locationText}>
+              Vous êtes à {locationText}
+            </Text>     
+          </View>
+        </View>
 
-      <Text style={{ fontSize: 34, color: '#204553', marginBottom: 20 }}>
-        <Text style={{ fontWeight: 'bold' }}>Explorer</Text> le monde de la pêche
-      </Text>
-      
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      
-      <View style={styles.cardsContainer}>
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}
-          onPress={navigateToDetailLocation}
-        >
-          <Text style={[styles.cardTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Détails spot</Text>
-          <Text style={[styles.cardDescription, { color: Colors[colorScheme ?? 'light'].text }]}>
-            Voir les informations détaillées du spot actuel
+        {/* Titre principal */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.mainTitle}>
+            <Text style={styles.boldTitle}>Explorer</Text> le monde{"\n"}
+            de la pêche
           </Text>
-        </TouchableOpacity>
+        </View>
         
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}
-        >
-          <Text style={[styles.cardTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Spots proches</Text>
-          <Text style={[styles.cardDescription, { color: Colors[colorScheme ?? 'light'].text }]}>
-            Découvrez des spots de pêche à proximité
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
-        onPress={navigateToDetailLocation}
-      >
-        <Text style={styles.buttonText}>Voir détails de location</Text>
-      </TouchableOpacity>
+        {/* Barre de recherche */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBox}>
+            <FontAwesome name="search" size={18} color="#999" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Recherche"
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        </View>
+
+        {/* Section Places Populaires */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionTitle}>
+              <Text style={styles.boldSectionTitle}>Places</Text> populaires
+            </Text>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.spotsScrollContainer}
+          >
+            {popularSpots.map((spot, index) => (
+              <TouchableOpacity 
+                key={spot.id} 
+                style={[styles.spotCard, { marginLeft: index === 0 ? 20 : 0 }]}
+                onPress={navigateToDetailLocation}
+              >
+                <View style={[styles.spotImageContainer, { backgroundColor: spot.color }]}>
+                  <TouchableOpacity style={styles.bookmarkIcon}>
+                    <FontAwesome name="bookmark-o" size={16} color="white" />
+                  </TouchableOpacity>
+                  
+                  {/* Texte superposé en bas de l'image */}
+                  <View style={styles.spotTextOverlay}>
+                    <Text style={styles.spotName}>{spot.name}</Text>
+                    <Text style={styles.spotSubtitle}>{spot.subtitle}</Text>
+                    <Text style={styles.spotSpecies}>{spot.species}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Section Que vois-tu ? */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.fishSectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Que vois-tu ?</Text>
+            </View>
+            <TouchableOpacity>
+              <Text style={styles.seeAllText}>Tout afficher</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.fishGrid}>
+            {fishOptions.map((fish, index) => (
+              <TouchableOpacity key={index} style={styles.fishCard}>
+                <Text style={styles.fishIcon}>{fish}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Espace pour la tab bar */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
     </View>
   );
 }
@@ -181,109 +258,162 @@ export default function TabOneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#969FA330',
+  },
+  headerContainer: {
     paddingHorizontal: 20,
+    paddingTop: 60,
+    marginBottom: 30,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  welcomeCard: {
-    width: '100%',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.23,
-    shadowRadius: 2.62,
-    elevation: 4,
-  },
-  welcomeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   image: {
     width: 20,
     height: 20,
     marginRight: 10,
   },
-  locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 10,
-    width: '100%',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-    elevation: 3,
-    marginBottom: 20,
-  },
   locationText: {
     fontSize: 16,
-    flex: 1,
+    color: '#475569',
+    marginLeft: 8,
+    fontWeight: '500',
   },
-  separator: {
-    marginVertical: 20,
-    height: 1,
-    width: '80%',
+  titleContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+    backgroundColor: 'transparent',
   },
-  cardsContainer: {
-    width: '100%',
+  mainTitle: {
+    fontSize: 34,
+    fontWeight: '300',
+    color: '#204553',
+    lineHeight: 40,
+  },
+  boldTitle: {
+    fontWeight: '700',
+    color: '#204553',
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
+  },
+  searchBox: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  card: {
-    width: '48%',
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
     elevation: 3,
   },
-  cardTitle: {
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    color: '#204553',
+    fontWeight: '400',
   },
-  cardDescription: {
-    fontSize: 14,
+  sectionContainer: {
+    marginBottom: 32,
   },
-  button: {
-    marginTop: 20,
-    paddingVertical: 12,
+  sectionTitleContainer: {
+    backgroundColor: 'transparent',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '400',
+    color: '#204553',
+    marginBottom: 16,
     paddingHorizontal: 20,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: 'transparent',
   },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  boldSectionTitle: {
+    fontWeight: '700',
+    color: '#204553',
+  },
+  spotsScrollContainer: {
+    paddingRight: 20,
+  },
+  spotCard: {
+    width: 160,
+    marginRight: 16,
+    marginBottom: 20,
+  },
+  spotImageContainer: {
+    height: 200,
+    borderRadius: 12,
+    position: 'relative',
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    padding: 15,
+  },
+  bookmarkIcon: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  spotTextOverlay: {
+    backgroundColor: 'transparent',
+  },
+  spotName: {
     fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 2,
+  },
+  spotSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    marginBottom: 4,
+  },
+  spotSpecies: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  fishSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: 'transparent',
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#8299a4',
+    fontWeight: '500',
+  },
+  fishGrid: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    justifyContent: 'space-between',
+  },
+  fishCard: {
+    width: 70,
+    height: 70,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  fishIcon: {
+    fontSize: 32,
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });
