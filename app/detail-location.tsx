@@ -27,6 +27,20 @@ interface UserLocationData {
   longitude: number;
   city?: string;
   timestamp?: number;
+  latitude: number;
+  longitude: number;
+  code_commune: string;
+  profondeur: number;
+  poissons: {
+    nom: string;
+    nombreTrouve: number;
+  }[];
+}
+
+interface UserLocationData {
+  latitude: number;
+  longitude: number;
+  city?: string;
 }
 
 const DetailLocation: React.FC = () => {
