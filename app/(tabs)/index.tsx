@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as Location from 'expo-location';
 
 interface FishSpecies {
   commonName: string;
@@ -25,7 +26,9 @@ interface FishSpot {
 }
 
 export default function TabOneScreen() {
-  const [locationText, setLocationText] = useState('Le Bouscat');
+  const [locationText, setLocationText] = useState('Chargement...');
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [userCoordinates, setUserCoordinates] = useState<{latitude: number, longitude: number} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [fishSpots, setFishSpots] = useState<FishSpot[]>([]);
   const [fishSpecies, setFishSpecies] = useState<FishSpecies[]>([]);
@@ -52,6 +55,62 @@ export default function TabOneScreen() {
       ])
     ).start();
   }, []);
+
+  // Récupération de la localisation au démarrage
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
+
+  const getCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationText('Paris');
+        setLocationLoading(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+      
+      const { latitude, longitude } = location.coords;
+      setUserCoordinates({ latitude, longitude });
+      
+      // Utiliser le reverse geocoding pour obtenir le nom de la ville
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude
+      });
+      
+      if (reverseGeocode && reverseGeocode.length > 0) {
+        const addressData = reverseGeocode[0];
+        const city = addressData.city || addressData.district || addressData.region || 'Position inconnue';
+        setLocationText(city);
+      } else {
+        setLocationText('Position inconnue');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération de la localisation:', error);
+      setLocationText('Le Bouscat'); // Fallback en cas d'erreur
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  // Fonction pour calculer la distance entre deux points GPS
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return distance;
+  };
 
   const staticSpots: FishSpot[] = [
     { 
@@ -156,7 +215,26 @@ export default function TabOneScreen() {
   ];
 
   useEffect(() => {
-    setFishSpots(staticSpots);
+    // Ajouter les distances aux spots si on a les coordonnées utilisateur
+    const spotsWithDistance = staticSpots.map(spot => {
+      if (userCoordinates) {
+        const distance = calculateDistance(
+          userCoordinates.latitude,
+          userCoordinates.longitude,
+          spot.coordinates.latitude,
+          spot.coordinates.longitude
+        );
+        return { ...spot, distance };
+      }
+      return spot;
+    });
+
+    // Trier par distance si disponible
+    if (userCoordinates) {
+      spotsWithDistance.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    }
+
+    setFishSpots(spotsWithDistance);
     setFishSpecies(staticSpecies);
     
     const timer = setTimeout(() => {
@@ -164,7 +242,7 @@ export default function TabOneScreen() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [userCoordinates]);
 
   const loadRealData = async () => {
     try {
@@ -199,12 +277,24 @@ export default function TabOneScreen() {
                   const speciesCount = stationData.ipr_effectifs_taxon.filter((effectif: number) => effectif > 0).length;
                   const totalSpecies = stationData.ipr_noms_communs_taxon.length;
                   
+                  // Calculer la distance si on a les coordonnées utilisateur
+                  let distance = undefined;
+                  if (userCoordinates && station.coordinates) {
+                    distance = calculateDistance(
+                      userCoordinates.latitude,
+                      userCoordinates.longitude,
+                      station.coordinates.latitude,
+                      station.coordinates.longitude
+                    );
+                  }
+                  
                   return {
                     code: station.code,
                     name: station.name || 'Station inconnue',
                     commune: station.commune,
                     coordinates: station.coordinates,
                     speciesCount: speciesCount,
+                    distance: distance,
                     source: 'API'
                   };
                 }
@@ -231,12 +321,24 @@ export default function TabOneScreen() {
               speciesCount = Math.floor(Math.random() * 10) + 12;
             }
             
+            // Calculer la distance si on a les coordonnées utilisateur
+            let distance = undefined;
+            if (userCoordinates && station.coordinates) {
+              distance = calculateDistance(
+                userCoordinates.latitude,
+                userCoordinates.longitude,
+                station.coordinates.latitude,
+                station.coordinates.longitude
+              );
+            }
+            
             return {
               code: station.code,
               name: station.name || 'Station inconnue',
               commune: station.commune,
               coordinates: station.coordinates,
               speciesCount: speciesCount,
+              distance: distance,
               source: 'Fallback'
             };
           }
@@ -253,6 +355,11 @@ export default function TabOneScreen() {
         if (batchStart + 5 < limitedStations.length) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
+      }
+
+      // Trier par distance si disponible
+      if (userCoordinates) {
+        spots.sort((a, b) => (a.distance || 0) - (b.distance || 0));
       }
 
       setFishSpots(spots);
@@ -378,7 +485,11 @@ export default function TabOneScreen() {
               />
             </Animated.View>
             <Text style={styles.locationText}>
-              Vous êtes à {locationText}
+              {locationLoading ? (
+                <ActivityIndicator size="small" color="#475569" />
+              ) : (
+                `Vous êtes à ${locationText}`
+              )}
             </Text>     
           </View>
         </View>
@@ -429,8 +540,6 @@ export default function TabOneScreen() {
               ))}
             </View>
           )}
-          
-          {/* Removed duplicate suggestions container */}
           
           {/* Affichage du nombre de résultats si recherche active */}
           {searchQuery.trim() && (
@@ -489,13 +598,6 @@ export default function TabOneScreen() {
                       <TouchableOpacity style={styles.bookmarkIcon}>
                         <FontAwesome name="bookmark-o" size={16} color="white" />
                       </TouchableOpacity>
-                      
-                      {spot.distance && (
-                        <View style={styles.distanceBadge}>
-                          <Text style={styles.distanceText}>{spot.distance.toFixed(1)} km</Text>
-                        </View>
-                      )}
-                      
                       <View style={styles.spotTextOverlay}>
                         <Text style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
                         <Text style={styles.spotSubtitle} numberOfLines={1}>à {spot.commune}</Text>
@@ -526,11 +628,7 @@ export default function TabOneScreen() {
                         <FontAwesome name="bookmark-o" size={16} color="white" />
                       </TouchableOpacity>
                       
-                      {spot.distance && (
-                        <View style={styles.distanceBadge}>
-                          <Text style={styles.distanceText}>{spot.distance.toFixed(1)} km</Text>
-                        </View>
-                      )}
+                     
                       
                       <View style={styles.spotTextOverlay}>
                         <Text style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
