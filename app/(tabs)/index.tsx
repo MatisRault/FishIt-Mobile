@@ -513,7 +513,7 @@ export default function TabOneScreen() {
                   <TouchableOpacity 
                     key={`normal-${spot.code}-${index}`} 
                     style={[styles.spotCard, { marginLeft: index === 0 ? 20 : 0 }]}
-                    onPress={() => navigateToDetailLocation(spot)}
+                    onPress={() => navigateToDetailLocation(spot.code)}
                   >
                     <View style={styles.spotImageContainer}>
                       <Image
@@ -533,7 +533,7 @@ export default function TabOneScreen() {
                       )}
                       
                       <View style={styles.spotTextOverlay}>
-                        <Text style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
+                        <Text style={styles.spotName} numberOfLines={1}>{spot.code}</Text>
                         <Text style={styles.spotSubtitle} numberOfLines={1}>à {spot.commune}</Text>
                         <Text style={styles.spotSpecies} numberOfLines={1}>
                           {spot.speciesCount} espèces de poissons
