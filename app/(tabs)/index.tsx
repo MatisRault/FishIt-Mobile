@@ -1,6 +1,8 @@
 import { StyleSheet, TouchableOpacity, Animated, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, TouchableOpacity, Animated, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Text, View } from '@/components/Themed';
+import React, { useState, useEffect, useRef } from 'react';
 import React, { useState, useEffect, useRef } from 'react';
 import { Image } from 'expo-image';
 import Colors from '@/constants/Colors';
