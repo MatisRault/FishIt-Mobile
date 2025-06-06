@@ -56,7 +56,7 @@ class ApiEtatPiscicole {
           }
 
           spotsMap.set(indicateur.code_station, {
-            code: indicateur.code_station,
+            code: indicateur.code_operation,
             name: indicateur.libelle_station || `Station ${indicateur.code_station}`,
             commune: indicateur.libelle_commune || 'Commune inconnue',
             latitude: indicateur.latitude,
@@ -141,32 +141,35 @@ export default function DepartementDetailScreen() {
     });
   };
 
-  const renderSpot = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-      style={[styles.spotCard, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }]}
-      onPress={() => navigateToSpotDetail(item.code)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.spotHeader}>
-        <FontAwesome name="map-marker" size={16} color="#2e78b7" style={styles.spotIcon} />
-        <Text style={[styles.spotName, { color: Colors[colorScheme ?? 'light'].text }]}>
-          {item.name}
+  const renderSpot = ({ item }: { item: any }) => {
+
+    return (
+      <TouchableOpacity 
+        style={[styles.spotCard, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }]}
+        onPress={() => navigateToSpotDetail(item.code)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.spotHeader}>
+          <FontAwesome name="map-marker" size={16} color="#2e78b7" style={styles.spotIcon} />
+          <Text style={[styles.spotName, { color: Colors[colorScheme ?? 'light'].text }]}>
+            {item.name}
+          </Text>
+          <FontAwesome name="chevron-right" size={14} color="#999" />
+        </View>
+        <Text style={[styles.spotCommune, { color: Colors[colorScheme ?? 'light'].text }]}>
+          {item.commune}
         </Text>
-        <FontAwesome name="chevron-right" size={14} color="#999" />
-      </View>
-      <Text style={[styles.spotCommune, { color: Colors[colorScheme ?? 'light'].text }]}>
-        {item.commune}
-      </Text>
-      <Text style={styles.spotAddress}>
-        📍 {item.address || 'Adresse non disponible'}
-      </Text>
-      <View style={styles.spotFooter}>
-        <Text style={styles.spotAction}>
-          Appuyez pour voir les détails
+        <Text style={styles.spotAddress}>
+          📍 {item.address || 'Adresse non disponible'}
         </Text>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.spotFooter}>
+          <Text style={styles.spotAction}>
+            Appuyez pour voir les détails
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderSpecies = ({ item }: { item: any }) => (
     <View style={styles.speciesCard}>
