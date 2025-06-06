@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Dimensions, Touc
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router';
 
 const globalLocationCache: { [key: string]: any } = {};
 const globalGeocodeCache: { [key: string]: any } = {};
@@ -30,6 +31,8 @@ interface UserLocationData {
 }
 
 const DetailLocation: React.FC = () => {
+  const params = useLocalSearchParams();
+  const code = params.code;
   const { height } = Dimensions.get('window');
   const [locationData, setLocationData] = useState<FilteredLocationData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,7 +43,7 @@ const DetailLocation: React.FC = () => {
   const isMounted = useRef(true);
   const fetchCount = useRef(0);
   
-  const code_operation = '92709';
+  const code_operation = code;
   const LOCATION_CACHE_KEY = `location_${code_operation}`;
   const USER_LOCATION_CACHE_KEY = 'user_location_cache';
   const CACHE_EXPIRY = 60 * 60 * 1000;
