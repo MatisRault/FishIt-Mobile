@@ -42,6 +42,7 @@ const DetailLocation: React.FC = () => {
   
   const isMounted = useRef(true);
   const fetchCount = useRef(0);
+  const initializationRef = useRef(false); // ← Nouvelle ref pour éviter les double-initialisations
   
   const code_operation = code;
   const LOCATION_CACHE_KEY = `location_${code_operation}`;
@@ -148,81 +149,7 @@ const DetailLocation: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const loadGeocodeCache = async () => {
-      const cache = await getFromAsyncStorage('geocode_cache');
-      if (cache) {
-        Object.assign(globalGeocodeCache, cache);
-      }
-    };
-    
-    loadGeocodeCache();
-    
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const loadCachedData = async () => {
-      try {
-        const cachedLocationData = await getFromAsyncStorage(LOCATION_CACHE_KEY);
-        const cachedUserLocation = await getFromAsyncStorage(USER_LOCATION_CACHE_KEY);
-        
-        let shouldFetchLocation = true;
-        let shouldFetchUserLocation = true;
-        
-        if (cachedLocationData && cachedLocationData.timestamp) {
-          const now = Date.now();
-          if (now - cachedLocationData.timestamp < CACHE_EXPIRY) {
-            setLocationData(cachedLocationData);
-            shouldFetchLocation = false;
-          }
-        }
-        
-        if (cachedUserLocation && cachedUserLocation.timestamp) {
-          const now = Date.now();
-          if (now - cachedUserLocation.timestamp < CACHE_EXPIRY) {
-            setUserLocation(cachedUserLocation);
-            shouldFetchUserLocation = false;
-          }
-        }
-        
-        if (!shouldFetchLocation && !shouldFetchUserLocation) {
-          setLoading(false);
-        } else {
-          if (shouldFetchLocation && shouldFetchUserLocation) {
-            fetchAllData();
-          } else if (shouldFetchLocation) {
-            fetchLocationDetails();
-          } else if (shouldFetchUserLocation) {
-            getUserLocation();
-          }
-        }
-      } catch (err) {
-        console.error("Erreur lors du chargement des données en cache:", err);
-        fetchAllData();
-      }
-    };
-    
-    loadCachedData();
-  }, []);
-  
-  useEffect(() => {
-    if (locationData && userLocation) {
-      const straightDist = calculateStraightDistance(
-        userLocation.latitude, 
-        userLocation.longitude, 
-        locationData.latitude, 
-        locationData.longitude
-      );
-      
-      const estimatedRouteDist = straightDist * 1.3;
-      setRouteDistance(estimatedRouteDist);
-    }
-  }, [locationData, userLocation, calculateStraightDistance]);
-
-  const getUserLocation = async () => {
+  const getUserLocation = async (): Promise<UserLocationData | null> => {
     try {
       const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
       
@@ -233,7 +160,7 @@ const DetailLocation: React.FC = () => {
       }
       
       if (finalStatus !== 'granted') {
-        return;
+        return null;
       }
 
       const location = await Location.getCurrentPositionAsync({
@@ -298,11 +225,14 @@ const DetailLocation: React.FC = () => {
     }
   };
 
-  const fetchLocationDetails = async () => {
+  const fetchLocationDetails = async (): Promise<FilteredLocationData | null> => {
     try {
       if (globalLocationCache[LOCATION_CACHE_KEY]) {
-        setLocationData(globalLocationCache[LOCATION_CACHE_KEY]);
-        return globalLocationCache[LOCATION_CACHE_KEY];
+        const cachedData = globalLocationCache[LOCATION_CACHE_KEY];
+        if (isMounted.current) {
+          setLocationData(cachedData);
+        }
+        return cachedData;
       }
       
       if (fetchCount.current > 0) {
@@ -363,32 +293,104 @@ const DetailLocation: React.FC = () => {
     }
   };
 
-  const fetchAllData = async () => {
+  // ← Fonction d'initialisation unifiée et simplifiée
+  const initializeData = useCallback(async () => {
+    if (initializationRef.current) return; // Éviter les double-initialisations
+    initializationRef.current = true;
+
     try {
-      const results = await Promise.all([
-        fetchLocationDetails(),
-        getUserLocation()
-      ]);
+      // Charger le cache de géocodage
+      const geocodeCache = await getFromAsyncStorage('geocode_cache');
+      if (geocodeCache) {
+        Object.assign(globalGeocodeCache, geocodeCache);
+      }
+
+      // Vérifier les données en cache
+      const cachedLocationData = await getFromAsyncStorage(LOCATION_CACHE_KEY);
+      const cachedUserLocation = await getFromAsyncStorage(USER_LOCATION_CACHE_KEY);
       
-      if (results[0] && results[1] && isMounted.current) {
+      const now = Date.now();
+      let validLocationData = null;
+      let validUserLocation = null;
+
+      // Vérifier la validité du cache de localisation
+      if (cachedLocationData?.timestamp && (now - cachedLocationData.timestamp < CACHE_EXPIRY)) {
+        validLocationData = cachedLocationData;
+        setLocationData(cachedLocationData);
+      }
+
+      // Vérifier la validité du cache utilisateur
+      if (cachedUserLocation?.timestamp && (now - cachedUserLocation.timestamp < CACHE_EXPIRY)) {
+        validUserLocation = cachedUserLocation;
+        setUserLocation(cachedUserLocation);
+      }
+
+      // Décider quelles données fetcher
+      const promises = [];
+      
+      if (!validLocationData) {
+        promises.push(fetchLocationDetails());
+      } else {
+        promises.push(Promise.resolve(validLocationData));
+      }
+      
+      if (!validUserLocation) {
+        promises.push(getUserLocation());
+      } else {
+        promises.push(Promise.resolve(validUserLocation));
+      }
+
+      // Attendre les résultats
+      const [locationResult, userLocationResult] = await Promise.all(promises);
+
+      // Calculer la distance si on a les deux positions
+      if (locationResult && userLocationResult && isMounted.current) {
         const straightDist = calculateStraightDistance(
-          results[1].latitude,
-          results[1].longitude,
-          results[0].latitude,
-          results[0].longitude
+          userLocationResult.latitude,
+          userLocationResult.longitude,
+          locationResult.latitude,
+          locationResult.longitude
         );
         
         const estimatedRouteDist = straightDist * 1.3;
         setRouteDistance(estimatedRouteDist);
       }
+
     } catch (error) {
-      console.error("Erreur lors du chargement des données:", error);
+      console.error("Erreur lors de l'initialisation:", error);
+      if (isMounted.current) {
+        setError("Erreur lors du chargement des données");
+      }
     } finally {
       if (isMounted.current) {
-        setLoading(false);
+        setLoading(false); // ← TOUJOURS arrêter le loading
       }
     }
-  };
+  }, [code_operation, calculateStraightDistance]);
+
+  // ← useEffect simplifié
+  useEffect(() => {
+    initializeData();
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, [initializeData]);
+
+  // ← useEffect pour recalculer la distance quand les données changent
+  useEffect(() => {
+    if (locationData && userLocation && !routeDistance) {
+      const straightDist = calculateStraightDistance(
+        userLocation.latitude, 
+        userLocation.longitude, 
+        locationData.latitude, 
+        locationData.longitude
+      );
+      
+      const estimatedRouteDist = straightDist * 1.3;
+      setRouteDistance(estimatedRouteDist);
+    }
+  }, [locationData, userLocation, routeDistance, calculateStraightDistance]);
 
   const openMapsWithDirections = useCallback(() => {
     if (!locationData) return;
