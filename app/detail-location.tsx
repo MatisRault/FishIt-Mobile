@@ -58,6 +58,11 @@ const DetailLocation: React.FC = () => {
     ]);
   };
 
+  const getSpeciesEmoji = (index: number): string => {
+    const emojis = ["🐠", "🐟", "🦈", "🐡", "🦞", "🦀", "🐙", "🦑", "🐢", "⭐", "🪼", "🐚"];
+    return emojis[index % emojis.length];
+  };
+
   const calculateStraightDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;
     const dLat = deg2rad(lat2 - lat1);
@@ -124,6 +129,7 @@ const DetailLocation: React.FC = () => {
       }
       
       const data = await response.json();
+
       
       let city = null;
       if (data.address) {
@@ -259,9 +265,10 @@ const DetailLocation: React.FC = () => {
           latitude: rawData.latitude,
           longitude: rawData.longitude,
           profondeur: rawData.ipr_profondeur,
-          poissons: [],
+          poissons: rawData.ipr_noms_communs_taxon,
           timestamp: Date.now()
         };
+
         
         if (rawData.ipr_noms_communs_taxon && rawData.ipr_noms_communs_taxon.length > 0 && rawData.ipr_effectifs_taxon) {
           filteredData.poissons = rawData.ipr_noms_communs_taxon
@@ -499,6 +506,33 @@ const DetailLocation: React.FC = () => {
             
             <View style={styles.separator} />
 
+
+
+            <View style={styles.sectionContainer}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.fishScrollContainer}
+                decelerationRate="fast"
+                snapToInterval={90}
+                snapToAlignment="start"
+                pagingEnabled={false}
+              >
+                {locationData.poissons.map((poisson, index) => (
+                  <TouchableOpacity 
+                    key={`species-${index}-${poisson}`} 
+                    style={[styles.fishCard, { marginLeft: index === 0 ? 20 : 0 }]}
+                  >
+                    <Text style={styles.fishIcon}>{getSpeciesEmoji(index)}</Text>
+                    <Text style={styles.fishName} numberOfLines={2}>
+                      {locationData.poissons.length > 0 ? poisson.nom : 'Aucune espèce trouvée'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+
             {userLocation && (
               <>
                 <View style={styles.routeContainer}>
@@ -553,7 +587,7 @@ const DetailLocation: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ECF3FA',
     padding: 15,
   },
   locationTitle: {
@@ -676,7 +710,36 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#204553',
-  }
+  },
+  sectionContainer: {
+    marginBottom: 32,
+  },
+  fishScrollContainer: {
+    paddingRight: 10,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  fishCard: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#E2ECF6',
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    padding: 8,
+    marginRight: 10,
+  },
+  fishIcon: {
+    fontSize: 40,
+    marginBottom: 4,
+  },
+  fishName: {
+    fontSize: 12,
+    color: '#204553',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
 });
 
 export default DetailLocation;
