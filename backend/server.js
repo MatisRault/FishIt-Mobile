@@ -30,7 +30,7 @@ app.post('/api/register', async (req, res) => {
     return res.status(400).json({ message: 'Utilisateur déjà existant' });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10); //le hash est : 123456
+  const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = new User({ name, email, password: hashedPassword });
   await newUser.save();
 
