@@ -589,6 +589,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ECF3FA',
     padding: 15,
+    marginTop:50,
   },
   locationTitle: {
     fontSize: 20,

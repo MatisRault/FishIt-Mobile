@@ -95,7 +95,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="detail-location" options={{ title: "Détails du spot" }} />
+        <Stack.Screen name="detail-location" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

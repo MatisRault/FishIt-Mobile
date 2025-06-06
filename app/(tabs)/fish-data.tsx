@@ -626,7 +626,7 @@ export default function FishDataScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-      <Stack.Screen options={{ title: "Spots de pêche" }} />
+      <Stack.Screen options={{ headerShown: false }} />
       
       {/* Tabs de navigation */}
       <View style={styles.tabsContainer}>
@@ -821,6 +821,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
     padding: 4,
+    marginTop:50,
   },
   tab: {
     flex: 1,
