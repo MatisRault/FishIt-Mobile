@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, View, FlatList, Animated, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useThemeColor } from '@/components/Themed';
 
 // Importer les composants et hooks d'onboarding
 import {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,7 +10,9 @@ const { width, height } = Dimensions.get('window');
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // Ajout d'un état de chargement
+  const [isLoading, setIsLoading] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertMsg, setAlertMsg] = useState('');
   const router = useRouter();
 
   const validateEmail = (email: string) => {
@@ -18,178 +20,242 @@ export default function LoginScreen() {
     return re.test(email);
   };
 
+  const showAlert = (msg: string) => {
+    setAlertMsg(msg);
+    setAlertVisible(true);
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      showAlert('Veuillez remplir tous les champs');
       return;
     }
-    
+
     if (!validateEmail(email)) {
-      Alert.alert('Erreur', 'Veuillez entrer une adresse email valide');
+      showAlert('Veuillez entrer une adresse email valide');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       await AuthService.login({ email, password });
-      Alert.alert('Connexion réussie');
-      router.replace('/(tabs)'); //page d'accueil
+      showAlert('Connexion réussie');
+      setTimeout(() => {
+        setAlertVisible(false);
+        router.replace('/(tabs)');
+      }, 1000);
     } catch (error) {
-      Alert.alert(
-        'Erreur de connexion', 
+      showAlert(
         error instanceof Error ? error.message : 'Une erreur inconnue est survenue'
       );
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
-    <View style={styles.container}>
-      {/* Background décoratif */}
-      <LinearGradient
-        colors={['#E3F2FD', '#BBDEFB']}
-        style={styles.background}
-      />
-      <View style={styles.circleTopLeft} />
-      <View style={styles.circleBottomRight} />
-
-      {/* Contenu principal */}
-      <Image
-        source={require('../../assets/images/logoConne.png')} 
-        style={styles.logo}
-        resizeMode="contain"
-      />
-
-      <Text style={styles.title}>Connexion</Text>
-
-      <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color="#55ACEE" style={styles.inputIcon} />
-        <TextInput
-          style={styles.inputWithIcon}
-          placeholder="Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#55ACEE" style={styles.inputIcon} />
-        <TextInput
-          style={styles.inputWithIcon}
-          placeholder="Mot de passe"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-      </View>
-
-      <TouchableOpacity onPress={() => Alert.alert('Réinitialisation', 'Lien de réinitialisation envoyé par mail.')}>
-        <Text style={styles.forgotPassword}>Mot de passe oublié ?</Text>
-      </TouchableOpacity>
-
-
-      <TouchableOpacity onPress={handleLogin}>
-        <Text style={styles.buttonText}>Connexion</Text>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        {/* Background décoratif */}
         <LinearGradient
           colors={['#4F97BC', '#446C7C']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.buttonGradient}
-        >
-          <View style={styles.buttonContent}>
-            <Ionicons name="arrow-forward" size={20} color="white" style={styles.icon} />
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
+        />
+        <LinearGradient
+          colors={['rgba(19,152,218,0.6)', 'rgba(39,94,114,0.6)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
 
-      <TouchableOpacity onPress={() => router.push('/register')}>
-        <Text style={styles.link}>Pas encore inscrit ? <Text style={styles.linkHighlight}>Créer un compte</Text></Text>
-      </TouchableOpacity>
-    </View>
+        {/* Logo et titre */}
+        <View style={styles.header}>
+          <Image
+            source={require('../../assets/images/logoConne.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Connexion</Text>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Ionicons name="mail-outline" size={20} color="#9A9A9A" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="E-mail"
+            placeholderTextColor="#275E72"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed-outline" size={20} color="#9A9A9A" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Mot de passe"
+            placeholderTextColor="#275E72"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+        </View>
+
+        <TouchableOpacity onPress={() => showAlert('Lien de réinitialisation envoyé par mail.')}>
+          <Text style={styles.forgotPassword}>Mot de passe oublié ?</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.buttonContainer}
+          onPress={handleLogin}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Se connecter</Text>
+          <LinearGradient
+            colors={['#4F97BC', '#446C7C']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <View style={styles.buttonContent}>
+              <Ionicons name="arrow-forward" size={22} color="white" style={styles.icon} />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push('/register')}>
+          <Text style={styles.link}>Pas encore inscrit ? <Text style={styles.linkHighlight}>Créer un compte</Text></Text>
+        </TouchableOpacity>
+        <CustomAlert visible={alertVisible} message={alertMsg} onClose={() => setAlertVisible(false)} />
+      </View>
+    </ScrollView>
+  );
+}
+
+// Composant d'alerte customisé
+function CustomAlert({ visible = true, message, onClose }: { visible?: boolean, message: string, onClose: () => void }) {
+  if (!visible) return null;
+  return (
+    <Modal transparent animationType="fade" visible={visible}>
+      <View style={alertStyles.overlay}>
+        <View style={alertStyles.alertBox}>
+          <Text style={alertStyles.alertText}>{message}</Text>
+          <TouchableOpacity onPress={onClose} style={alertStyles.closeBtn}>
+            <Text style={alertStyles.closeText}>Fermer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
-    padding: 24,
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+    minHeight: height,
   },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  circleTopLeft: {
+  vectorBackground1: {
     position: 'absolute',
-    top: -60,
-    left: -60,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#B3E5FC',
-    opacity: 0.4,
+    width: width * 1.05,
+    height: height * 0.17,
+    left: -width * 0.025,
+    top: 0,
+    borderBottomLeftRadius: 60,
+    borderBottomRightRadius: 60,
   },
-  circleBottomRight: {
+  vectorBackground2: {
     position: 'absolute',
-    bottom: -60,
-    right: -60,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#81D4FA',
-    opacity: 0.4,
+    width: width * 1.3,
+    height: height * 0.45,
+    left: -width * 0.65,
+    top: height * 0.82,
+    borderTopLeftRadius: 200,
+    borderTopRightRadius: 200,
+    transform: [{ rotate: '5deg' }],
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: height * 0.05,
+    marginBottom: height * 0.05,
+  },
+  formContainer: {
+    paddingHorizontal: 30,
   },
   logo: {
     width: 120,
     height: 120,
-    alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 26,
+    fontSize: 30,
     fontWeight: 'bold',
     color: '#204553',
     textAlign: 'center',
-    marginBottom: 24,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#55ACEE',
-    borderRadius: 16,
+    borderRadius: 40,
     backgroundColor: 'white',
-    paddingHorizontal: 12,
-    marginBottom: 16,
-    height: 50,
+    paddingHorizontal: 15,
+    marginBottom: 30,
+    marginStart: 20,
+    marginEnd: 20,
+    height: 55,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: 5,
   },
-  inputWithIcon: {
+  input: {
     flex: 1,
     height: '100%',
+    fontSize: 15,
+    color: '#275E72',
   },
   forgotPassword: {
     color: '#204553',
     textAlign: 'right',
-    marginBottom: 16,
+    margin: 22,
+    marginTop: 3,
     textDecorationLine: 'underline',
-    fontSize: 14,
-  },  
+    fontSize: 15,
+  },
+  buttonContainer: {
+    marginTop: 35,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   buttonText: {
     color: '#204553',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 20,
     textAlign: 'center',
+    marginRight: 10,
   },
   buttonGradient: {
-    padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -197,10 +263,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    marginTop: 1,
-  },  
+    marginLeft: 6,
+  },
   link: {
-    marginTop: 20,
+    marginTop: 30,
     color: '#204553',
     textAlign: 'center',
   },
@@ -208,5 +274,45 @@ const styles = StyleSheet.create({
     color: '#204553',
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+});
+
+// Styles pour l'alerte customisée
+const alertStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertBox: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 18,
+    padding: 25,
+    alignItems: 'center',
+    shadowColor: '#4F97BC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 220,
+  },
+  alertText: {
+    color: '#204553',
+    fontSize: 16,
+    marginBottom: 15,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    backgroundColor: '#4F97BC',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 18,
+  },
+  closeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

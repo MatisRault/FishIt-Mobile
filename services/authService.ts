@@ -1,8 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_DE_BASE_URL } from '@/app/(auth)/config';
+import { API_DE_BASE_URL } from '@/services/config';
 
-// Interface pour typer les données utilisateur (si vous utilisez TypeScript)
+// Interface pour typer les données utilisateurs
 interface User {
   name: string;
   email: string;
