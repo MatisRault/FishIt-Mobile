@@ -35,8 +35,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Espèces',
-          tabBarIcon: ({ color }) => <TabBarIcon name="fish" color={color} />,
+          title: 'Poissons',
+          tabBarIcon: ({ color }) => <TabBarIcon name="anchor" color={color} />,
         }}
       />
       <Tabs.Screen
