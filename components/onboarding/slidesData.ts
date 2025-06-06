@@ -1,8 +1,5 @@
 import { Slide } from './SlideItem';
 
-/**
- * Données des slides d'onboarding
- */
 const SLIDES_DATA: Slide[] = [
   {
     id: '1',
