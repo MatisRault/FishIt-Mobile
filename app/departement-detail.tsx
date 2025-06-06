@@ -6,7 +6,6 @@ import Colors from '@/constants/Colors';
 import { Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-// Configuration API Hub'Eau
 const API_BASE_URL = "https://hubeau.eaufrance.fr/api/v1/etat_piscicole/indicateurs";
 
 interface DepartementDetailData {
@@ -43,9 +42,7 @@ class ApiEtatPiscicole {
       const especesMap = new Map();
       
       data.data?.forEach((indicateur: any) => {
-        // Collecter les spots uniques
         if (indicateur.code_station && !spotsMap.has(indicateur.code_station)) {
-          // Créer une adresse approximative à partir des données disponibles
           let address = '';
           if (indicateur.libelle_commune) {
             address = indicateur.libelle_commune;
@@ -68,7 +65,6 @@ class ApiEtatPiscicole {
           });
         }
         
-        // Collecter les espèces uniques
         if (indicateur.ipr_noms_communs_taxon && indicateur.ipr_noms_latins_taxon) {
           indicateur.ipr_noms_communs_taxon.forEach((espece: string, index: number) => {
             if (espece && !especesMap.has(espece)) {
@@ -86,7 +82,7 @@ class ApiEtatPiscicole {
       
       return {
         code: codeDepartement,
-        nom: '', // Sera rempli par les params
+        nom: '', 
         spotsCount: spots.length,
         speciesCount: species.length,
         spots,
