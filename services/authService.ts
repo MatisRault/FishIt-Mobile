@@ -52,7 +52,8 @@ export const AuthService = {
    */
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await api.post('/register', userData);
+      const response = await api.post('/api/register', userData);
+      console.log(response);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -67,7 +68,7 @@ export const AuthService = {
    */
   async login(credentials: LoginData): Promise<AuthResponse> {
     try {
-      const response = await api.post('/login', credentials);
+      const response = await api.post('/api/login', credentials);
       
       // Sauvegarde le token dans AsyncStorage
       if (response.data.token) {
@@ -88,7 +89,7 @@ export const AuthService = {
    */
   async getCurrentUser(): Promise<User> {
     try {
-      const response = await api.get('/me');
+      const response = await api.get('/api/me');
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -107,7 +108,7 @@ export const AuthService = {
    */
   async updateUser(updates: UpdateUserData): Promise<User> {
     try {
-      const response = await api.put('/users', updates);
+      const response = await api.put('/api/users', updates);
       return response.data.user;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -122,7 +123,7 @@ export const AuthService = {
    */
   async deleteUser(): Promise<void> {
     try {
-      await api.delete('/users');
+      await api.delete('/api/users');
       // On nettoie le token après suppression
       await AsyncStorage.removeItem('token');
     } catch (error) {
