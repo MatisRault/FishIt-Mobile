@@ -265,8 +265,11 @@ export default function TabOneScreen() {
     }
   };
 
-  const navigateToDetailLocation = (spot: FishSpot) => {
-    router.push('/detail-location');
+  const navigateToDetailLocation = (code: any) => {
+      router.push({
+      pathname: '/detail-location',
+      params: { code: code },
+    });
   };
 
   const getSpotImage = (index: number): any => {
@@ -474,7 +477,7 @@ export default function TabOneScreen() {
                   <TouchableOpacity 
                     key={`search-${spot.code}-${index}`} 
                     style={[styles.spotCard, { marginLeft: index === 0 ? 20 : 0 }]}
-                    onPress={() => navigateToDetailLocation(spot)}
+                    onPress={() => navigateToDetailLocation(spot.code)}
                   >
                     <View style={styles.spotImageContainer}>
                       <Image
